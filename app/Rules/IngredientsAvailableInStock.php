@@ -22,16 +22,16 @@ class IngredientsAvailableInStock implements ValidationRule
 
         foreach($value as $Orderproduct) {
 
-            $product = Product::find($Orderproduct['product_id']);
+            $product = isset($Orderproduct['product_id']) 
+            ? Product::find($Orderproduct['product_id'])?->load('ingredients') 
+            : null;
 
             if(!$product) {
                 $fail("There is an specified product in order does not exist..");
                 return;
             }
 
-            $ingredients = $product->ingredients;
-
-            foreach ($ingredients as $ingredient) {
+            foreach ($product->ingredients as $ingredient) {
 
                 $ingredientAmountsUsed = $ingredient->pivot->amount * $Orderproduct['quantity'];
 

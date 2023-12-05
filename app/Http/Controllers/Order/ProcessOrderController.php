@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Order;
 
 use App\Events\OrderCreated;
+use App\Exceptions\DataRaceException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ProcessOrderRequest;
 use App\Http\Resources\OrderResource;
@@ -12,6 +13,9 @@ use Illuminate\Support\Facades\DB;
 
 class ProcessOrderController extends Controller
 {
+
+    private $maxRaceRetries = 3;
+    private $retryRaceCount = 0;
 
     public function __construct(private OrderRepositoryInterface $orderRepository) 
     {
@@ -23,37 +27,45 @@ class ProcessOrderController extends Controller
      */
     public function __invoke(ProcessOrderRequest $request)
     {
-        DB::beginTransaction();
+        do {
 
-        try {
+            DB::beginTransaction();
+            try {
 
-            // Retrieve the original version of used ingredients to handle concurrency issues by using versioning of timestamp 
-            $ingredientsOriginalVersion = $this->orderRepository->getIngredients($request->products);
+                // Retrieve the original version of used ingredients to handle concurrency issues by using versioning of timestamp 
+                $ingredientsOriginalVersion = $this->orderRepository->getIngredients($request->products);
 
-            // This validation utilizes the IngredientsAvailableInStock rule
-            // to check that the requested quantities of ingredients are within the available stock levels.
-            $request->validate($request->rules());
+                // This validation utilizes the IngredientsAvailableInStock rule
+                // to check that the requested quantities of ingredients are within the available stock levels.
+                $request->validate($request->rules());
 
-            // Persist the Order in the database
-            $order = $this->orderRepository->createWithProducts($request->products);
-            
-            // Update the stock of the ingredients validated atomically with optimistic locking inside
-            $this->orderRepository->updateIngredientsSafely($order, $ingredientsOriginalVersion);
+                // Persist the Order in the database
+                $order = $this->orderRepository->createWithProducts($request->products);
+                
+                // Update the stock of the ingredients validated atomically with optimistic locking inside
+                $this->orderRepository->updateIngredientsSafely($order, $ingredientsOriginalVersion);
 
-            event(new OrderCreated($order));
-            
-            DB::commit();
+                event(new OrderCreated($order));
+                
+                DB::commit();
 
-            $order->refresh();
+                $order->refresh();
 
-            return new OrderResource($order->with(['products'])->first());            
-            
-        } catch (Exception $e) 
-        {
+                return new OrderResource($order->with(['products'])->first());            
+                
+            } catch (Exception $e) 
+            {
+                DB::rollBack();
+                
+                if (!$e instanceof DataRaceException) {
+                    throw $e;
+                    break;
+                } else {
+                    $this->retryRaceCount++;
+                }
+                
+            } 
 
-            DB::rollBack();
-            throw $e;
-
-        } 
+        } while($this->retryRaceCount < $this->maxRaceRetries);
     }
 }

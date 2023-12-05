@@ -15,9 +15,10 @@ class IngredientLowAmountDetected extends Notification
     /**
      * Create a new notification instance.
      */
-    public function __construct(Ingredient $ingredient)
+    public function __construct(protected Ingredient $ingredient)
     {
         $this->ingredient = $ingredient;
+        $this->afterCommit();
     }
 
     /**
@@ -36,9 +37,9 @@ class IngredientLowAmountDetected extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-                    ->line('The introduction to the notification.')
-                    ->action('Notification Action', url('/'))
-                    ->line('Thank you for using our application!');
+                    ->line("We noticed that the stock level of {$this->ingredient->name} has dropped below 50%")
+                    ->action('Supply', url('/'))
+                    ->line('Thank you for using our System!');
     }
 
     /**

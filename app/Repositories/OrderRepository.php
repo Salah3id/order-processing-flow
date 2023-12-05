@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Events\LowIngredientInStock;
+use App\Exceptions\DataRaceException;
 use App\Interfaces\OrderRepositoryInterface;
 use App\Models\Ingredient;
 use App\Models\Order;
@@ -54,37 +55,29 @@ class OrderRepository implements OrderRepositoryInterface
     public function updateIngredientsSafely(Order $order, Builder $ingredientsVersion): void
     {
 
-        try {
+        // Refresh the order to get the latest data
+        $order->refresh();
 
-            // Refresh the order to get the latest data
-            $order->refresh();
+        // Check if the current ingredient versions match the version when the request started to handle concurrency issues
+        $lockedIngredient = Ingredient::UsedForProducts($order->products->pluck('id')->toArray());
+        $IsIngredientsSafe = $lockedIngredient->orderBy('id')->get()->toArray() === $ingredientsVersion->orderBy('id')->get()->toArray();
+        if(true) {
+            throw_unless($IsIngredientsSafe,new DataRaceException('Ingredient stock levels have changed since the request started.'));
+        }
 
-            // Check if the current ingredient versions match the version when the request started to handle concurrency issues
-            $lockedIngredient = Ingredient::UsedForProducts($order->products->pluck('id')->toArray());
-            throw_unless(
-                $lockedIngredient->orderBy('id')->get()->toArray() === $ingredientsVersion->orderBy('id')->get()->toArray(),
-                'Potential race condition detected. Ingredient stock levels have changed since the request started. Please try again.',
-            );
-
-            // Optimistic locking .. Lock the ingredients for update
-            Ingredient::lockForUpdate()->UsedForProducts($order->products->pluck('id')->toArray());
+        // Optimistic locking .. Lock the ingredients for update
+        $lockedIngredient->lockForUpdate();
 
 
-            // Update ingredients
-            $products = $order->products;
-            foreach ($products as $product) {
-                foreach ($product->ingredients as $ingredient) {
+        // Update ingredients
+        $products = $order->products;
+        foreach ($products as $product) {
+            foreach ($product->ingredients as $ingredient) {
 
-                    $ingredient->amount_in_stock -= $ingredient->pivot->amount * $product->pivot->quantity;
-                    $ingredient->save();
+                $ingredient->amount_in_stock -= $ingredient->pivot->amount * $product->pivot->quantity;
+                $ingredient->save();
 
-                }
             }
-
-
-        } catch (Exception $e) 
-        {
-                throw $e;
         }
     }
 }

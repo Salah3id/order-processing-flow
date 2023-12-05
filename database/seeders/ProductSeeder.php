@@ -17,10 +17,20 @@ class ProductSeeder extends Seeder
         $product->name = 'Burger';
         $product->saveQuietly();
 
+        $product2 = new Product();
+        $product2->name = 'Cheese Burger';
+        $product2->saveQuietly();
+
         $product->ingredients()->sync([
             1 => ['amount'=> 150], // Beef
             2 => ['amount'=> 30], // Cheese
             3 => ['amount'=> 20], // Onion
+        ]);
+
+        $product2->ingredients()->sync([
+            1 => ['amount'=> 100], // Beef
+            2 => ['amount'=> 60], // Cheese
+            3 => ['amount'=> 10], // Onion
         ]);
     }
 }

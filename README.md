@@ -1,6 +1,4 @@
 
-[!NOTE] This repository is an practice workspace  and is not meant to be used for any development purposes.
-
 # Order processing workflow - API
     
 This API can :
@@ -37,6 +35,7 @@ Show [API Documentation](https://www.postman.com/acairo/workspace/public/collect
 - Implement database transactions 
 - Utilize optimistic locking mechanism to prevent concurrent orders 
 - Handled within a single atomic transaction
+- Implement a retry mechanism using a loop and exception handling.
 
 ---
 
@@ -63,8 +62,13 @@ Asserting that email notifications are sent only when necessary.
 ---
 ## Database ERD
 <p align="center" width="100%">
-    <img width="200px" src="https://github.com/Salah3id/order-processing-flow/blob/main/public/salah3id.png?raw=true"> 
+    <img src="database_erd.png" alt="J"/>
 </p>
+
+---
+> **Note**
+> This repository is an practice workspace  and is not meant to be used for any development purposes.
+
 
 
 
