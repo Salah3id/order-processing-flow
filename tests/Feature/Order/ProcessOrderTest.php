@@ -77,9 +77,6 @@ it('updates ingredient amount after order creation', function () {
     expect($ingredients->pluck('amount_in_stock')->toArray())
     ->toEqual([18550,4430,830]);
     
-
-
-    $this->assertTrue(true);
 });
 
 it('fails to create an order if any ingredient is not available in stock', function () {

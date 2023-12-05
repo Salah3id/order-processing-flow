@@ -58,14 +58,14 @@ class OrderRepository implements OrderRepositoryInterface
         // Refresh the order to get the latest data
         $order->refresh();
 
+        // Optimistic locking using versioning and retry mechanism
         // Check if the current ingredient versions match the version when the request started to handle concurrency issues
         $lockedIngredient = Ingredient::UsedForProducts($order->products->pluck('id')->toArray());
         $IsIngredientsSafe = $lockedIngredient->orderBy('id')->get()->toArray() === $ingredientsVersion->orderBy('id')->get()->toArray();
-        if(true) {
-            throw_unless($IsIngredientsSafe,new DataRaceException('Ingredient stock levels have changed since the request started.'));
-        }
+        
+        throw_unless($IsIngredientsSafe,new DataRaceException('Ingredient stock levels have changed since the request started.'));
 
-        // Optimistic locking .. Lock the ingredients for update
+        // Pessimistic locking .. Lock the ingredients for update
         $lockedIngredient->lockForUpdate();
 
 
