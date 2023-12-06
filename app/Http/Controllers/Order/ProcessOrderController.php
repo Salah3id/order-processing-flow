@@ -27,6 +27,7 @@ class ProcessOrderController extends Controller
      */
     public function __invoke(ProcessOrderRequest $request)
     {
+        // Optimistic locking using versioning and retry mechanism with DataRaceException handling.
         do {
 
             DB::beginTransaction();
@@ -36,7 +37,6 @@ class ProcessOrderController extends Controller
                 $ingredientsOriginalVersion = $this->orderRepository->getIngredients($request->products);
 
                 // This validation utilizes the IngredientsAvailableInStock rule
-                // to check that the requested quantities of ingredients are within the available stock levels.
                 $request->validate($request->rules());
 
                 // Persist the Order in the database

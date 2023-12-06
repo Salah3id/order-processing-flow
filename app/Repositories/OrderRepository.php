@@ -50,26 +50,36 @@ class OrderRepository implements OrderRepositoryInterface
      *
      * @param Order $order The order to update ingredients for
      * @param Builder $ingredientsVersion A reference to the ingredient versions at the beginning of the request
-     * @throws Exception If there is an error updating the ingredients
+     * @throws DataRaceException if ingredient stock levels have changed since the request was initiated.
      */
     public function updateIngredientsSafely(Order $order, Builder $ingredientsVersion): void
     {
-
-        // Refresh the order to get the latest data
-        $order->refresh();
-
-        // Optimistic locking using versioning and retry mechanism
-        // Check if the current ingredient versions match the version when the request started to handle concurrency issues
+        
+        // Fetch ingredients that are used in the ordered products
         $lockedIngredient = Ingredient::UsedForProducts($order->products->pluck('id')->toArray());
+
+        // Verify that ingredient stock levels have not changed since the request started
         $IsIngredientsSafe = $lockedIngredient->orderBy('id')->get()->toArray() === $ingredientsVersion->orderBy('id')->get()->toArray();
         
+        // If changed, throw a DataRaceException to prevent inconsistencies.
         throw_unless($IsIngredientsSafe,new DataRaceException('Ingredient stock levels have changed since the request started.'));
 
         // Pessimistic locking .. Lock the ingredients for update
         $lockedIngredient->lockForUpdate();
 
-
         // Update ingredients
+        $this->updateIngredients($order);
+        
+    }
+
+    /**
+     * Updates the ingredient stock levels based on the ordered products.
+     *
+     * @param Order $order The order to process
+     *
+     * @return void
+     */
+    public function updateIngredients(Order $order): void {
         $products = $order->products;
         foreach ($products as $product) {
             foreach ($product->ingredients as $ingredient) {
