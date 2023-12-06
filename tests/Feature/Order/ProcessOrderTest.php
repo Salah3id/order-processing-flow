@@ -140,8 +140,7 @@ it('updates the low_amount_notified_at timestamp after merchant is notified', fu
     ];
 
     $this->postJson('api/process-order', $orderData);
-    sleep(2);
-    expect(Ingredient::find(3)->low_amount_notified_at)->toBeNull();
+    expect(Ingredient::find(3)->low_amount_notified_at)->not->toBeNull();
 });
 
 
